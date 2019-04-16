@@ -1,18 +1,21 @@
 #include <stdlib.h>
 #include <time.h>
+#include <float.h>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
+#include <fstream>
 using namespace std;
 
 struct City {
-    int x;
-    int y;
+    double x;
+    double y;
     City() {
         x = rand() % 200;
         y = rand() % 200;
     }
-    City(int new_x, int new_y) {
+    City(double new_x, double new_y) {
         x = new_x;
         y = new_y;
     }
@@ -32,7 +35,7 @@ public:
         this->distance = distance;
         this->capacity = capacity;
         this->length = length;
-        this->mutate_rate = 0.2;
+        this->mutate_rate = 0.1;
         individuals = new int*[capacity];
         next_generation = new int*[capacity];
         for (int i = 0; i < capacity; i++) {
@@ -53,22 +56,18 @@ public:
     void crossover(int* parentA, int* parentB, int* child) {
         int start = rand() % length;
         int end = rand() % length;
-        if (end < start) {
-            swap(start, end);
-        }
-        bool used[length] = {0};
-        for (int i = start; i <= end; i++) {
+        bool used[length];
+        memset(used, 0, length*sizeof(bool));
+        for (int i = start; i != end; i = (i+1)%capacity) {
             child[i] = parentA[i];
             used[parentA[i]] = 1;
         }
-        int idx = 0;
+        int idx = end;
         for (int i = 0; i < length; i++) {
-            if (idx == start) {
-                idx = end+1;
-            }
             if (used[parentB[i]] == 0) {
-                child[idx++] = parentB[i];
-                used[parentB[i]] == 1;
+                child[idx] = parentB[i];
+                used[parentB[i]] = 1;
+                idx = (idx+1) % capacity;
             }
         }
     }
@@ -84,14 +83,35 @@ public:
     }
 
     void evolve() {
+        // select the best individual as elite
+        double best_score = DBL_MAX;
         for (int i = 0; i < capacity; i++) {
-            int a = tournamentSelect(4);
-            int b = tournamentSelect(4);
+            double cur_cost = getIndividualCost(individuals[i]);
+            if (cur_cost < best_score) {
+                best_score = cur_cost;
+                for (int j = 0; j < length; j++) {
+                    next_generation[0][j] = individuals[i][j];
+                }
+            }
+        }
+        // using tournament select to generate children
+        for (int i = 1; i < capacity; i++) {
+            int a = tournamentSelect(capacity/8);
+            int b = tournamentSelect(capacity/8);
+            while (b == a) {
+                b = tournamentSelect(capacity/8);
+            }
             crossover(individuals[a], individuals[b], next_generation[i]);
             mutate(next_generation[i]);
+        }
+        // copy next_generation to population
+        for (int i = 0; i < capacity; i++) {
             for (int j = 0; j < length; j++) {
-                cout << next_generation[i][j] << " ";
+                individuals[i][j] = next_generation[i][j];
+                if (i == 0)
+                    cout << next_generation[i][j] << " ";
             }
+            if (i == 0)
             cout << getIndividualCost(next_generation[i]) << endl;
         }
         cout << endl;
@@ -130,6 +150,7 @@ public:
     int cityNum;
     City* cities;
     double** distance;
+    Population* p;
 
     TSP(int num) {
         cityNum = num;
@@ -146,6 +167,26 @@ public:
         cout << endl;
     };
 
+    TSP(string filename) {
+        ifstream infile(filename);
+        infile >> cityNum;
+        cities = new City[cityNum];
+        int id;
+        double x, y;
+        while (infile >> id >> x >> y) {
+            cities[id-1].x = x;
+            cities[id-1].y = y;
+        }
+        distance = new double*[cityNum];
+        for (int i = 0; i < cityNum; i++) {
+            distance[i] = new double[cityNum];
+            for (int j = 0; j < cityNum; j++) {
+                distance[i][j] = calc_distance(cities[i], cities[j]);
+            }
+        }
+        p = new Population(cityNum, cityNum, distance);
+    }
+
 private:
     double calc_distance(City a, City b) {
         double dist_x = (a.x - b.x) * (a.x - b.x);
@@ -155,9 +196,9 @@ private:
 };
 
 int main() {
-    TSP t(15);
-    Population p(10, 15, t.distance);
-    for (int i = 0; i < 5; i++) {
-        p.evolve();
+    srand(15618);
+    TSP t("TSP_data/wi29.tsp");
+    for (int i = 0; i < 1000000; i++) {
+        t.p->evolve();
     }
 }
