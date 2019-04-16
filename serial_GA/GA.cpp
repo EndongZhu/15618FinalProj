@@ -35,7 +35,7 @@ public:
         this->distance = distance;
         this->capacity = capacity;
         this->length = length;
-        this->mutate_rate = 0.1;
+        this->mutate_rate = 0.5;
         individuals = new int*[capacity];
         next_generation = new int*[capacity];
         for (int i = 0; i < capacity; i++) {
@@ -115,6 +115,8 @@ public:
             cout << getIndividualCost(next_generation[i]) << endl;
         }
         cout << endl;
+        // mutate_rate decay
+        mutate_rate *= 0.9999;
     }
 
     int tournamentSelect(int tournamentNum) {
@@ -195,10 +197,12 @@ private:
     }
 };
 
-int main() {
-    srand(15618);
-    TSP t("TSP_data/wi29.tsp");
-    for (int i = 0; i < 1000000; i++) {
+int main(int argc, char **argv) {
+    string filename(argv[1]);
+    srand(rand());
+    TSP t(filename);
+    for (int i = 0; i < 100000; i++) {
+        srand(rand());
         t.p->evolve();
     }
 }
