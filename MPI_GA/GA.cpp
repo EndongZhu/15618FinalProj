@@ -152,14 +152,14 @@ public:
 };
 
 
-class TSP {
+class GA {
 public:
     int cityNum;
     City* cities;
     double** distance;
     Population* p;
 
-    TSP(int num) {
+    GA(int num) {
         cityNum = num;
         cities = new City[num];
         distance = new double*[num];
@@ -174,7 +174,7 @@ public:
         // cout << endl;
     };
 
-    TSP(string filename) {
+    GA(string filename) {
         ifstream infile(filename.c_str());
         infile >> cityNum;
         cities = new City[cityNum];
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
 
     string filename(argv[1]);
     srand(time(NULL) * this_zone);
-    TSP t(filename);
+    GA t(filename);
 
     for (int round = 0; round < 10; round++) {
         for (int i = 0; i < 10000; i++) {
