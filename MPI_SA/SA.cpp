@@ -3,6 +3,7 @@
 #include<string.h>
 #include<time.h>
 #include<math.h>
+#include <mpi.h>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -58,7 +59,7 @@ public:
 
 
     SA(string filename) {
-        ifstream infile(filename);
+        ifstream infile(filename.c_str());
         infile >> city_num;
         cities = new City[city_num];
         solution  = new int[city_num];
@@ -130,15 +131,16 @@ public:
 
 int main(int argc, char **argv)
 {
+    int process_count = 1;
+    int this_zone = 0;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+    MPI_Comm_rank(MPI_COMM_WORLD, &this_zone);
+
     string filename(argv[1]);
-    cout << filename << endl;
-    srand((unsigned)time(NULL)); //initialize random seed
-    time_t start, finish;
-    start = clock();
-    double T;
+    srand(time(NULL) * this_zone); //initialize random seed
+    double T = T0;
     int count = 0; // record annealing numbers
-    T = T0;
-    //read file
     SA s(filename);
 
     while(T > T_end)
@@ -163,10 +165,35 @@ int main(int argc, char **argv)
             count++;
         }
         T *= q; // annealing
+
+        if (count >= 100) {
+            if (this_zone == 0) {
+                int res[process_count][s.city_num];
+                memcpy(res[0], s.solution, sizeof(int) * s.city_num);
+                double best_cost = s.get_path_len(res[0]);
+                int best_idx = 0;
+                for (int i = 1; i < process_count; i++) {
+                    MPI_Recv(res[i], s.city_num, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    double cost = s.get_path_len(res[i]);
+                    if (cost < best_cost) {
+                        best_cost = cost;
+                        best_idx = i;
+                    }
+                }
+                MPI_Bcast(res[best_idx], s.city_num, MPI_INT, 0, MPI_COMM_WORLD);
+            } else {
+                MPI_Send(s.solution, s.city_num, MPI_INT, 0, 0, MPI_COMM_WORLD);
+                MPI_Bcast(s.solution, s.city_num, MPI_INT, 0, MPI_COMM_WORLD);
+            }
+            count = 0;
+        }
     }
-    finish = clock();
-    double duration = ((double)(finish-start))/CLOCKS_PER_SEC; // get elapsed time
+
+
+
+    cout << "Process " << this_zone << ": ";
     s.print_solution();
-    printf("Iterations: %d \nelapsed time: %lf seconds.\n", count, duration);
+
+    MPI_Finalize();
     return 0;
 }
